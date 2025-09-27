@@ -1,0 +1,91 @@
+// This block tells Prisma to generate the JavaScript client code
+// that our application will use to talk to the database.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// This block defines the connection to our database.
+// It tells Prisma to look for the connection string
+// in the .env file.
+datasource db {
+  provider = "postgresql"
+  url      =  env("DATABASE_URL")
+}
+
+
+// --- AUTHENTICATION MODELS (Required by NextAuth.js) ---
+// These tables are essential for the login system to work.
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  // This connects a user to their personal expenses and portfolio assets
+  expenses      Expense[]
+  portfolios    PortfolioAsset[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
+// --- APPLICATION MODELS (Our Custom Project Features) ---
+// These tables will store the data for our finance hub.
+
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  amount      Float
+  category    String
+  date        DateTime @default(now())
+  // This creates the relationship back to a single User
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+}
+
+model PortfolioAsset {
+  id          String @id @default(cuid())
+  ticker      String // e.g., "AAPL" for Apple Inc.
+  shares      Float
+  // This creates the relationship back to a single User
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  // This rule prevents a user from having two entries for the same stock ticker
+  @@unique([userId, ticker])
+}
